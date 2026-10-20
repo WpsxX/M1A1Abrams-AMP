@@ -1,0 +1,16 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <OutputType>Exe</OutputType>
+    <TargetFramework>net8.0</TargetFramework>
+    <EnableDefaultCompileItems>false</EnableDefaultCompileItems>
+  </PropertyGroup>
+  <ItemGroup>
+    <Compile Include="..\Weapons\AmpAmmo.cs" />
+    <Compile Include="..\Weapons\MainGunLoadout.cs" />
+    <Compile Include="..\Weapons\AmmoLoadoutRules.cs" />
+    <Compile Include="..\Weapons\LahatGuidance.cs" />
+    <Compile Include="..\ModUtil\Reflect.cs" />
+    <Compile Include="AmmoIntegrationTestApi.cs" />
+    <Compile Include="AmmoIntegrationTests.cs" />
+  </ItemGroup>
+</Project>

@@ -1,0 +1,201 @@
+<?xml version="1.0" encoding="utf-8"?>
+<Project ToolsVersion="15.0" xmlns="http://schemas.microsoft.com/developer/msbuild/2003">
+  <Import Project="$(MSBuildExtensionsPath)\$(MSBuildToolsVersion)\Microsoft.Common.props" Condition="Exists('$(MSBuildExtensionsPath)\$(MSBuildToolsVersion)\Microsoft.Common.props')" />
+  <PropertyGroup>
+    <Configuration Condition=" '$(Configuration)' == '' ">Debug</Configuration>
+    <Platform Condition=" '$(Platform)' == '' ">AnyCPU</Platform>
+    <ProjectGuid>{84941601-55AD-4127-BC02-997BF8E40925}</ProjectGuid>
+    <OutputType>Library</OutputType>
+    <AppDesignerFolder>Properties</AppDesignerFolder>
+    <RootNamespace>M1A1Abrams</RootNamespace>
+    <AssemblyName>M1A1Abrams-AMP</AssemblyName>
+    <TargetFrameworkVersion>v4.7.2</TargetFrameworkVersion>
+    <FileAlignment>512</FileAlignment>
+    <Deterministic>true</Deterministic>
+  </PropertyGroup>
+  <PropertyGroup Condition=" '$(Configuration)|$(Platform)' == 'Debug|AnyCPU' ">
+    <DebugSymbols>true</DebugSymbols>
+    <DebugType>full</DebugType>
+    <Optimize>false</Optimize>
+    <OutputPath>bin\Debug\</OutputPath>
+    <DefineConstants>DEBUG;TRACE</DefineConstants>
+    <ErrorReport>prompt</ErrorReport>
+    <WarningLevel>4</WarningLevel>
+    <AllowUnsafeBlocks>true</AllowUnsafeBlocks>
+  </PropertyGroup>
+  <PropertyGroup Condition=" '$(Configuration)|$(Platform)' == 'Release|AnyCPU' ">
+    <DebugType>pdbonly</DebugType>
+    <Optimize>true</Optimize>
+    <OutputPath>bin\Release\</OutputPath>
+    <DefineConstants>TRACE</DefineConstants>
+    <ErrorReport>prompt</ErrorReport>
+    <WarningLevel>4</WarningLevel>
+    <AllowUnsafeBlocks>true</AllowUnsafeBlocks>
+  </PropertyGroup>
+  <!-- Point GameDir at your Gunner, HEAT, PC! install, e.g.
+         dotnet build M1A1Abrams.csproj -c Release -p:GameDir="D:\Games\Gunner HEAT PC" -->
+  <PropertyGroup>
+    <GameDir Condition=" '$(GameDir)' == '' ">E:\SteamLibrary\steamapps\common\Gunner HEAT PC</GameDir>
+    <ManagedDir Condition=" '$(ManagedDir)' == '' ">$(GameDir)\Bin\GHPC_Data\Managed</ManagedDir>
+    <MelonDir Condition=" '$(MelonDir)' == '' ">$(GameDir)\Bin\MelonLoader\net35</MelonDir>
+  </PropertyGroup>
+  <ItemGroup>
+    <!--
+      Assembly-CSharp is referenced from the game's Managed folder on purpose: that is the
+      official, un-publicized build, the one the game actually loads. Compiling against
+      publicized_assemblies\Assembly-CSharp-Publicized.dll would hide every private access
+      that throws FieldAccessException at run time. Non-public members go through
+      ModUtil.Reflect instead.
+    -->
+    <Reference Include="0Harmony">
+      <HintPath>$(MelonDir)\0Harmony.dll</HintPath>
+    </Reference>
+    <Reference Include="Assembly-CSharp">
+      <HintPath>$(ManagedDir)\Assembly-CSharp.dll</HintPath>
+    </Reference>
+    <Reference Include="FMODUnity">
+      <HintPath>$(ManagedDir)\FMODUnity.dll</HintPath>
+    </Reference>
+    <Reference Include="FMODUnityResonance">
+      <HintPath>$(ManagedDir)\FMODUnityResonance.dll</HintPath>
+    </Reference>
+    <Reference Include="MelonLoader">
+      <HintPath>$(MelonDir)\MelonLoader.dll</HintPath>
+    </Reference>
+    <Reference Include="Rewired_Core">
+      <HintPath>$(ManagedDir)\Rewired_Core.dll</HintPath>
+    </Reference>
+    <Reference Include="System" />
+    <Reference Include="System.Core" />
+    <Reference Include="System.Xml.Linq" />
+    <Reference Include="System.Data.DataSetExtensions" />
+    <Reference Include="Microsoft.CSharp" />
+    <Reference Include="System.Data" />
+    <Reference Include="System.Net.Http" />
+    <Reference Include="System.Xml" />
+    <Reference Include="Tomlet">
+      <HintPath>$(MelonDir)\Tomlet.dll</HintPath>
+    </Reference>
+    <Reference Include="Unity.Addressables">
+      <HintPath>$(ManagedDir)\Unity.Addressables.dll</HintPath>
+    </Reference>
+    <Reference Include="Unity.Postprocessing.Runtime">
+      <HintPath>$(ManagedDir)\Unity.Postprocessing.Runtime.dll</HintPath>
+    </Reference>
+    <Reference Include="Unity.ResourceManager">
+      <HintPath>$(ManagedDir)\Unity.ResourceManager.dll</HintPath>
+    </Reference>
+    <Reference Include="Unity.TextMeshPro">
+      <HintPath>$(ManagedDir)\Unity.TextMeshPro.dll</HintPath>
+    </Reference>
+    <Reference Include="UnityEngine">
+      <HintPath>$(ManagedDir)\UnityEngine.dll</HintPath>
+    </Reference>
+    <Reference Include="UnityEngine.AssetBundleModule">
+      <HintPath>$(ManagedDir)\UnityEngine.AssetBundleModule.dll</HintPath>
+    </Reference>
+    <Reference Include="UnityEngine.CoreModule">
+      <HintPath>$(ManagedDir)\UnityEngine.CoreModule.dll</HintPath>
+    </Reference>
+    <Reference Include="UnityEngine.InputLegacyModule">
+      <HintPath>$(ManagedDir)\UnityEngine.InputLegacyModule.dll</HintPath>
+    </Reference>
+    <Reference Include="UnityEngine.ParticleSystemModule">
+      <HintPath>$(ManagedDir)\UnityEngine.ParticleSystemModule.dll</HintPath>
+    </Reference>
+    <Reference Include="UnityEngine.PhysicsModule">
+      <HintPath>$(ManagedDir)\UnityEngine.PhysicsModule.dll</HintPath>
+    </Reference>
+    <Reference Include="UnityEngine.UI">
+      <HintPath>$(ManagedDir)\UnityEngine.UI.dll</HintPath>
+    </Reference>
+    <Reference Include="UnityEngine.UIModule">
+      <HintPath>$(ManagedDir)\UnityEngine.UIModule.dll</HintPath>
+    </Reference>
+    <!-- UnityEngine.Font is forwarded here; without it CROWS.cs fails with CS1069. -->
+    <!-- AudioClip/AudioSource live here; Mk19.cs uses both for its per-shot FMOD clips. -->
+    <Reference Include="UnityEngine.AudioModule">
+      <HintPath>$(ManagedDir)\UnityEngine.AudioModule.dll</HintPath>
+    </Reference>
+    <Reference Include="UnityEngine.TextRenderingModule">
+      <HintPath>$(ManagedDir)\UnityEngine.TextRenderingModule.dll</HintPath>
+    </Reference>
+    <Reference Include="netstandard">
+      <HintPath>$(ManagedDir)\netstandard.dll</HintPath>
+    </Reference>
+  </ItemGroup>
+  <ItemGroup>
+    <Compile Include="Core\Assets.cs" />
+    <Compile Include="Core\Main.cs" />
+    <Compile Include="Core\Prefs.cs" />
+    <Compile Include="Vehicle\AmpArmor.cs" />
+    <Compile Include="Vehicle\AmpCrew.cs" />
+    <Compile Include="Vehicle\AmpDesignation.cs" />
+    <Compile Include="Vehicle\AmpFeatures.cs" />
+    <Compile Include="Vehicle\AmpSmoke.cs" />
+    <Compile Include="Vehicle\AmpUpgradeRules.cs" />
+    <Compile Include="Vehicle\AmpUpgrades.cs" />
+    <Compile Include="Vehicle\CITV.cs" />
+    <Compile Include="Vehicle\DUArmour.cs" />
+    <Compile Include="Vehicle\GAS.cs" />
+    <Compile Include="Vehicle\M1A1.cs" />
+    <Compile Include="Vehicle\M1Preset.cs" />
+    <Compile Include="Vehicle\M1toM1IP.cs" />
+    <Compile Include="Weapons\AmmoLoadoutRules.cs" />
+    <Compile Include="Weapons\Ammo_120mm.cs" />
+    <Compile Include="Weapons\AmpAmmo.cs" />
+    <Compile Include="Weapons\AmpFuzeState.cs" />
+    <Compile Include="Weapons\LahatGuidance.cs" />
+    <Compile Include="Weapons\LahatTopAttack.cs" />
+    <Compile Include="Weapons\MPAT.cs" />
+    <Compile Include="Weapons\MainGunLoadout.cs" />
+    <Compile Include="Weapons\ProximityFuze.cs" />
+    <Compile Include="CROWS\CROWS.Ammo.cs" />
+    <Compile Include="CROWS\CROWS.Cupola.cs" />
+    <Compile Include="CROWS\CROWS.Model.cs" />
+    <Compile Include="CROWS\CROWS.Mount.cs" />
+    <Compile Include="CROWS\CROWS.Reticle.cs" />
+    <Compile Include="CROWS\CROWS.Sight.cs" />
+    <Compile Include="CROWS\CROWS.Thermal.cs" />
+    <Compile Include="CROWS\CROWS.cs" />
+    <Compile Include="CROWS\CrowsAimLock.cs" />
+    <Compile Include="CROWS\CrowsAmmo.cs" />
+    <Compile Include="CROWS\CrowsAmmoRules.cs" />
+    <Compile Include="CROWS\CrowsAutoTrack.Ballistics.cs" />
+    <Compile Include="CROWS\CrowsAutoTrack.Lead.cs" />
+    <Compile Include="CROWS\CrowsAutoTrack.Motion.cs" />
+    <Compile Include="CROWS\CrowsAutoTrack.Sight.cs" />
+    <Compile Include="CROWS\CrowsAutoTrack.cs" />
+    <Compile Include="CROWS\CrowsBallisticIntercept.cs" />
+    <Compile Include="CROWS\CrowsInstancingAssist.cs" />
+    <Compile Include="CROWS\CrowsInstancingSubmit.cs" />
+    <Compile Include="CROWS\CrowsLeadLock.cs" />
+    <Compile Include="CROWS\CrowsPredictor.cs" />
+    <Compile Include="CROWS\CrowsShotFeedback.cs" />
+    <Compile Include="CROWS\CrowsSightUi.cs" />
+    <Compile Include="CROWS\CrowsTrackingBoxes.cs" />
+    <Compile Include="CROWS\Mk19.cs" />
+    <Compile Include="CROWS\Mk19Rules.cs" />
+    <Compile Include="Optics\AmpOptics.cs" />
+    <Compile Include="Optics\FixedReticleSize.cs" />
+    <Compile Include="Optics\ReticleSizeRules.cs" />
+    <Compile Include="ModUtil\AmmoCache.cs" />
+    <Compile Include="ModUtil\AssetUtil.cs" />
+    <Compile Include="ModUtil\Module.cs" />
+    <Compile Include="ModUtil\ModuleManager.cs" />
+    <Compile Include="ModUtil\Reflect.cs" />
+    <Compile Include="ModUtil\Util.cs" />
+    <Compile Include="Presets\PresetManager.cs" />
+    <Compile Include="Presets\PresetMarker.cs" />
+    <Compile Include="Presets\PresetTemplate.cs" />
+    <Compile Include="Properties\AssemblyInfo.cs" />
+  </ItemGroup>
+  <ItemGroup />
+  <Import Project="$(MSBuildToolsPath)\Microsoft.CSharp.targets" />
+</Project>
+
+
+
+
+
+

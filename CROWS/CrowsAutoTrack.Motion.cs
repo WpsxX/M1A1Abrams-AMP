@@ -1,0 +1,90 @@
+using System;
+using GHPC;
+using GHPC.Vehicle;
+using UnityEngine;
+
+namespace M1A1Abrams
+{
+    public partial class CrowsAutoTrack : MonoBehaviour
+    {
+        /// <summary>
+        /// The platform's velocity as the chassis reports it, with no filter on it, for the lead; see
+        /// PlatformLeadVelocity. The same sample also drives the platform acceleration estimate.
+        /// </summary>
+        private Vector3 platform_velocity_raw;
+        private bool platform_velocity_raw_valid;
+        private Vector3 platform_acceleration;
+        private Vector3 platform_velocity_previous;
+        private float platform_motion_time;
+        private bool platform_motion_sample_valid;
+
+        private void UpdatePlatformMotion()
+        {
+            Vector3 velocity = Vector3.zero;
+            bool known = false;
+
+            // The cloned fire-control object can retain the donor's chassis reference (or a
+            // chassis that has not been wired yet). The vehicle passed to Attach is the spawned
+            // vehicle this station actually rides on, so its chassis is authoritative for both
+            // relative target motion and the projectile's inherited platform velocity.
+            if (ours != null)
+            {
+                try
+                {
+                    velocity = ours?.Chassis?.Velocity ?? Vector3.zero;
+                    known = ours.Chassis != null;
+                }
+                catch (Exception)
+                {
+                    known = false;
+                }
+            }
+
+            if (!known)
+            {
+                try
+                {
+                    if (fcs != null && fcs.Chassis != null)
+                    {
+                        velocity = fcs.Chassis.Velocity;
+                        known = true;
+                    }
+                }
+                catch (Exception)
+                {
+                    known = false;
+                }
+            }
+
+            if (!known)
+            {
+                velocity = Vector3.zero;
+            }
+
+            // Keep the raw sample for the relative lead and derive acceleration from the same clock.
+            platform_velocity_raw = velocity;
+            platform_velocity_raw_valid = known;
+
+            float motion_now = Time.time;
+            if (known && platform_motion_sample_valid)
+            {
+                float motion_dt = motion_now - platform_motion_time;
+                if (motion_dt > 1e-4f && motion_dt <= 0.25f)
+                {
+                    Vector3 measured_acceleration = (velocity - platform_velocity_previous) / motion_dt;
+                    platform_acceleration = Vector3.Lerp(platform_acceleration,
+                        Vector3.ClampMagnitude(measured_acceleration, 12f),
+                        1f - Mathf.Exp(-8f * motion_dt));
+                }
+            }
+            else if (!known)
+            {
+                platform_acceleration = Vector3.zero;
+            }
+
+            platform_velocity_previous = velocity;
+            platform_motion_time = motion_now;
+            platform_motion_sample_valid = known;
+        }
+    }
+}
