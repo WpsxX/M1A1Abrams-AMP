@@ -8,6 +8,7 @@ using GHPC.Weaponry;
 using MelonLoader;
 using ModUtil;
 using UnityEngine;
+using VUtil = ModUtil.Util;
 
 namespace M1A1Abrams
 {
@@ -43,15 +44,17 @@ namespace M1A1Abrams
         internal static bool Init()
         {
             if (belts.Count != 0 && ammo_codex_raufoss != null) return true;
+            int scanned = 0;
             foreach (AmmoCodexScriptable codex in Resources.FindObjectsOfTypeAll<AmmoCodexScriptable>())
             {
                 if (codex == null || codex.AmmoType == null) continue;
+                scanned++;
                 if (codex.name == "ammo_M8" || codex.AmmoType.Name == "M8 API") ammo_codex_m8 = codex;
                 if (codex.name == "ammo_50_tracer" || codex.AmmoType.Name == "M20 API-T") ammo_codex_50tracer = codex;
             }
             if (ammo_codex_m8 == null)
             {
-                Warn("M8 API donor missing; CROWS/M2 ammunition is not ready.");
+                Warn("M8 API donor missing; CROWS/M2 ammunition is not ready. (" + scanned + " ammo codices were loaded when this ran.)");
                 return false;
             }
             if (ammo_codex_50tracer == null) ammo_codex_50tracer = ammo_codex_m8;
@@ -75,7 +78,7 @@ namespace M1A1Abrams
         private static AmmoCodexScriptable BuildSlap(string name, bool tracer)
         {
             AmmoType ammo = new AmmoType();
-            Util.ShallowCopy(ammo, (tracer ? ammo_codex_50tracer : ammo_codex_m8).AmmoType);
+            VUtil.ShallowCopy(ammo, (tracer ? ammo_codex_50tracer : ammo_codex_m8).AmmoType);
             ammo.Name = name;
             ammo.ShortName = AmmoType.AmmoShortName.Caliber50;
             ammo.Category = AmmoType.AmmoCategory.Penetrator;
@@ -115,7 +118,7 @@ namespace M1A1Abrams
             ammo.ImpactDecalDescriptor = ammo_codex_m8.AmmoType.ImpactDecalDescriptor;
             ammo.ArmorOptimizations = new AmmoType.ArmorOptimization[0];
             ammo.CachedIndex = -1;
-            Util.CacheAmmo(ammo);
+            AmmoCache.CacheAmmo(ammo);
             AmmoCodexScriptable codex = ScriptableObject.CreateInstance<AmmoCodexScriptable>();
             codex.name = tracer ? "ammo_m962_slapt" : "ammo_m903_slap";
             codex.AmmoType = ammo;
@@ -146,6 +149,8 @@ namespace M1A1Abrams
         private static void Warn(string message)
         {
             warnings.Add(message);
+            // The set was never read, so a donor lookup that failed here used to leave no trace at all
+            // while quietly taking the whole station down with it.
         }
 
         internal static void AttachTracerLimit(WeaponSystem weapon)
@@ -291,7 +296,7 @@ namespace M1A1Abrams
         private static void BuildRaufossBelt()
         {
             ammo_raufoss = new AmmoType();
-            Util.ShallowCopy(ammo_raufoss, ammo_codex_m8.AmmoType);
+            VUtil.ShallowCopy(ammo_raufoss, ammo_codex_m8.AmmoType);
             ammo_raufoss.Name = "Mk 211 Mod 0 HEIAP";
             ammo_raufoss.UseTracer = false;
             ammo_raufoss.TntEquivalentKg = 0.035f;
@@ -313,10 +318,10 @@ namespace M1A1Abrams
             ammo_codex_raufoss = ScriptableObject.CreateInstance<AmmoCodexScriptable>();
             ammo_codex_raufoss.AmmoType = ammo_raufoss;
             ammo_codex_raufoss.name = "ammo_raufoss";
-            Util.CacheAmmo(ammo_raufoss);
+            AmmoCache.CacheAmmo(ammo_raufoss);
 
             ammo_raufoss_tracer = new AmmoType();
-            Util.ShallowCopy(ammo_raufoss_tracer, ammo_raufoss);
+            VUtil.ShallowCopy(ammo_raufoss_tracer, ammo_raufoss);
             ammo_raufoss_tracer.Name = "Mk 30 Mod 0 HEIAP-T";
             ammo_raufoss_tracer.UseTracer = true;
             ammo_raufoss_tracer.ImpactEffectDescriptor.RicochetType = ParticleEffectsManager.RicochetType.LargeTracer;
@@ -324,7 +329,7 @@ namespace M1A1Abrams
             ammo_codex_raufoss_tracer = ScriptableObject.CreateInstance<AmmoCodexScriptable>();
             ammo_codex_raufoss_tracer.AmmoType = ammo_raufoss_tracer;
             ammo_codex_raufoss_tracer.name = "ammo_raufoss_tracer";
-            Util.CacheAmmo(ammo_raufoss_tracer);
+            AmmoCache.CacheAmmo(ammo_raufoss_tracer);
 
             clip_raufoss_500 = new AmmoType.AmmoClip();
             clip_raufoss_500.Capacity = 400;
@@ -381,3 +386,4 @@ namespace M1A1Abrams
         }
     }
 }
+

@@ -11,14 +11,6 @@ using GHPC.Effects;
 
 namespace ModUtil
 {
-    public sealed class AlreadyConverted : MonoBehaviour
-    {
-        void Awake()
-        {
-            enabled = false;
-        }
-    }
-
     public sealed class Util
     {
         public static ImpactEffectsDatabaseScriptable impact_fx_db;
@@ -151,19 +143,6 @@ namespace ModUtil
             obj = new T();
         }
 
-        public static void SetupFLIRShaders(GameObject parent)
-        {
-            foreach (MeshRenderer mrend in parent.GetComponentsInChildren<MeshRenderer>())
-            {
-                foreach (Material mat in mrend.materials)
-                {
-                    mat.shader = Shader.Find("Standard (FLIR)");
-                }
-            }
-
-            HeatSource src = parent.AddComponent<HeatSource>();
-            src.Heat = 0.4f;
-        }
 
         public static void ShallowCopy(System.Object dest, System.Object src)
         {
@@ -183,17 +162,6 @@ namespace ModUtil
             }
         }
 
-        public static UsableOptic GetDayOptic(FireControlSystem fcs)
-        {
-            if (fcs.MainOptic.slot.IsLinkedNightSight)
-            {
-                return fcs.MainOptic.slot.LinkedDaySight.PairedOptic;
-            }
-            else
-            {
-                return fcs.MainOptic;
-            }
-        }
 
         public static void EmptyRack(GHPC.Weapons.AmmoRack rack)
         {

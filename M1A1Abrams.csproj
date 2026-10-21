@@ -173,6 +173,7 @@
     <Compile Include="CROWS\CrowsPredictor.cs" />
     <Compile Include="CROWS\CrowsShotFeedback.cs" />
     <Compile Include="CROWS\CrowsSightUi.cs" />
+    <Compile Include="CROWS\CrowsStabiliserLock.cs" />
     <Compile Include="CROWS\CrowsTrackingBoxes.cs" />
     <Compile Include="CROWS\Mk19.cs" />
     <Compile Include="CROWS\Mk19Rules.cs" />

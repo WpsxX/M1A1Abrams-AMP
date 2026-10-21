@@ -64,7 +64,6 @@ namespace M1A1Abrams
         public static float AimPointMarch = 2f;      // metres, aim point pulled past the target
         public static float MaxLockRange = 6000f;    // metres, fallback when the FCS has no laser range
         public static float LockHullRadius = 6.5f;   // metres: the hit must be on the hull, not a stray collider
-        public static float RoofInset = 0.35f;       // metres below the hull top, i.e. the turret roof
         public static float RoofMaxOffset = 1.2f;    // sanity cap on roof height above the hull centre
         public static float CommandSmoothing = 3f;   // 1/s, how fast the steering command may turn
         public static float SmoothingCutoff = 150f;  // metres; inside this the command is used raw

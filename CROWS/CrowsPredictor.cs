@@ -480,7 +480,6 @@ namespace M1A1Abrams
         private double last;
         private bool seeded;
         private int samples, rejections;
-        private double nis;
 
         internal CrowsUkf()
         {
@@ -493,7 +492,6 @@ namespace M1A1Abrams
 
         internal int Samples { get { return samples; } }
         internal int Rejections { get { return rejections; } }
-        internal double Nis { get { return nis; } }
         internal double Jerk { get { return jerk; } }
 
         internal LeadVector Position { get { return At(Pos); } }
@@ -547,7 +545,6 @@ namespace M1A1Abrams
             Healthy = false;
             samples = 0;
             rejections = 0;
-            nis = 0;
             jerk = NominalJerk;
             last = 0;
         }
@@ -1655,3 +1652,4 @@ namespace M1A1Abrams
         }
     }
 }
+

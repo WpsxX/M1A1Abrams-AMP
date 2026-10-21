@@ -17,7 +17,7 @@ namespace M1A1Abrams
     ///
     /// Everything sits inside the mod's black frame (sight picture x 0.0875 .. 0.9120, y 0.0676 ..
     /// 0.9333) in the sight's own colour, rgba(255, 122, 158) at 75% opacity, with a red glow. One
-    /// instance is built per optic; the two match the closest available field of view.
+    /// instance is built per optic; the two share a zoom index so day and thermal match.
     /// </summary>
     public class CrowsSightUi : MonoBehaviour
     {
@@ -37,6 +37,8 @@ namespace M1A1Abrams
         /// <summary>The sight UI colour: rgba(255, 122, 158) at 75% opacity, with a red glow.</summary>
         private static readonly Color UI_COLOUR = new Color(255f / 255f, 122f / 255f, 158f / 255f, UI_ALPHA);
         private static readonly Color GLOW_COLOUR = new Color(1f, 0f, 0f, GLOW);
+
+        private static readonly string[] ZOOM_LABELS = new string[] { "1X", "5X", "10X", "15X" };
 
         /// <summary>
         /// The field of view the reticle's size was set against, and deliberately not the widest one the
@@ -150,7 +152,7 @@ namespace M1A1Abrams
             track_text.gameObject.SetActive(false);
 
             // magnification: a fixed spot, so the readout does not travel with the zoom
-            zoom_text = AddText(font, "zoom", "5X", new Vector2(0.5f, 0.5f), ZOOM_SIZE, TextAlignmentOptions.Left);
+            zoom_text = AddText(font, "zoom", ZOOM_LABELS[1], new Vector2(0.5f, 0.5f), ZOOM_SIZE, TextAlignmentOptions.Left);
             zoom_text.rectTransform.anchoredPosition = new Vector2(204f, -250f);
 
             BuildAzimuthRing();
@@ -446,18 +448,9 @@ namespace M1A1Abrams
 
             CameraSlot follower = active_slot == slot ? other_slot : slot;
 
-            int closest = 0;
-            float distance = Mathf.Abs(follower.DefaultFov - active_slot.CurrentFov);
-            for (int i = 0; follower.OtherFovs != null && i < follower.OtherFovs.Length; i++)
+            if (follower.FovIndex != active_slot.FovIndex)
             {
-                float candidate = Mathf.Abs(follower.OtherFovs[i] - active_slot.CurrentFov);
-                if (candidate >= distance) continue;
-                closest = i + 1;
-                distance = candidate;
-            }
-            if (follower.FovIndex != closest)
-            {
-                Reflect.SetProperty(follower, "FovIndex", closest);
+                Reflect.SetProperty(follower, "FovIndex", active_slot.FovIndex);
             }
         }
 
@@ -589,7 +582,7 @@ namespace M1A1Abrams
                 return;
             }
 
-            int index = slot == null ? 0 : slot.FovIndex;
+            int index = slot == null ? 0 : Mathf.Clamp(slot.FovIndex, 0, ZOOM_LABELS.Length - 1);
             bool visible = index > 0;
 
             if (zoom_text.gameObject.activeSelf != visible)
@@ -600,7 +593,7 @@ namespace M1A1Abrams
             if (visible && shown_zoom != index)
             {
                 shown_zoom = index;
-                zoom_text.text = (30f / Mathf.Max(0.001f, slot.CurrentFov)).ToString("0.#") + "X";
+                zoom_text.text = ZOOM_LABELS[index];
             }
         }
 
@@ -676,3 +669,4 @@ namespace M1A1Abrams
         }
     }
 }
+

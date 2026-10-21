@@ -260,26 +260,6 @@ namespace M1A1Abrams
             }
         }
 
-        private static void ApplyReticle(Transform gas, string child_name, Choice choice)
-        {
-            Transform child = gas.Find(child_name);
-
-            if (child == null) return;
-
-            ReticleMesh mesh = child.GetComponent<ReticleMesh>();
-
-            if (mesh == null) return;
-
-            SkinnedMeshRenderer smr = child.GetComponent<SkinnedMeshRenderer>();
-
-            // ReticleMesh.Load() dereferences its renderer before it enters its own try/catch.
-            if (smr == null) return;
-
-            mesh.reticleSO = choice.tree;
-            Reflect.Set(mesh, "reticle", choice.cache);
-            smr.sharedMesh = null;
-            mesh.Load();
-        }
 
         /// <summary>
         /// Rebuilds the sight's primary mesh from the chosen tree.

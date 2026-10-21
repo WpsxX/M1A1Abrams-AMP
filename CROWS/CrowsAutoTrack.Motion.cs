@@ -20,6 +20,10 @@ namespace M1A1Abrams
 
         private void UpdatePlatformMotion()
         {
+            // Target motion and relative UKF state use the physics clock too.
+            // Update/LateUpdate callers must not differentiate one physics sample twice.
+            float motion_now = Time.fixedTime;
+            if (platform_motion_sample_valid && motion_now == platform_motion_time) return;
             Vector3 velocity = Vector3.zero;
             bool known = false;
 
@@ -65,7 +69,6 @@ namespace M1A1Abrams
             platform_velocity_raw = velocity;
             platform_velocity_raw_valid = known;
 
-            float motion_now = Time.time;
             if (known && platform_motion_sample_valid)
             {
                 float motion_dt = motion_now - platform_motion_time;
@@ -88,3 +91,4 @@ namespace M1A1Abrams
         }
     }
 }
+

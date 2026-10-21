@@ -42,21 +42,39 @@ namespace M1A1Abrams
             PostProcessVolume[] source_volumes = source_post.GetComponentsInChildren<PostProcessVolume>(true);
             PostProcessVolume[] volumes = post.GetComponentsInChildren<PostProcessVolume>(true);
             var volume_map = new Dictionary<PostProcessVolume, PostProcessVolume>();
-            for (int i = 0; i < source_volumes.Length; i++)
+            // Bounded by the shorter array: the clone is expected to mirror the source one for one, but
+            // indexing past the end of a mismatched pair threw and took the whole mount with it.
+            int n = Mathf.Min(source_volumes.Length, volumes.Length);
+            for (int i = 0; i < n; i++)
             {
                 // Include any runtime changes to the source profile. Each clone
                 // owns its enabled state; profiles and materials are read-only here.
                 volumes[i].sharedProfile = source_volumes[i].profile;
                 volumes[i].enabled = false;
-                volume_map.Add(source_volumes[i], volumes[i]);
+                // Assign rather than Add: a duplicate key in the source hierarchy threw ArgumentException.
+                volume_map[source_volumes[i]] = volumes[i];
             }
 
             // UsableOptic.Start subscribes to ActiveChanged and controls both
             // MainCam and FLIR Only volumes, exactly as it does for the main gun.
-            optic.post = main_gun.post == null ? null : volume_map[main_gun.post];
-            optic.AltNightPost = main_gun.AltNightPost == null ? null : volume_map[main_gun.AltNightPost];
-            optic.postAdditional = Array.ConvertAll(main_gun.postAdditional,
-                volume => volume_map[volume]);
+            // TryGetValue rather than an indexer: a volume the clone does not carry left the old code
+            // throwing KeyNotFoundException out of here, which Mount() reported as no CROWS at all.
+            optic.post = main_gun.post != null && volume_map.TryGetValue(main_gun.post, out PostProcessVolume mapped)
+                ? mapped : null;
+            optic.AltNightPost = main_gun.AltNightPost != null && volume_map.TryGetValue(main_gun.AltNightPost, out PostProcessVolume alt_mapped)
+                ? alt_mapped : null;
+            // Filtered, not converted: Array.ConvertAll indexes the map for every element and a single
+            // unmapped extra volume was enough to lose the optic entirely.
+            List<PostProcessVolume> additional = new List<PostProcessVolume>(main_gun.postAdditional.Length);
+            for (int i = 0; i < main_gun.postAdditional.Length; i++)
+            {
+                if (main_gun.postAdditional[i] != null && volume_map.TryGetValue(main_gun.postAdditional[i], out PostProcessVolume extra))
+                {
+                    additional.Add(extra);
+                }
+            }
+            optic.postAdditional = additional.ToArray();
         }
     }
 }
+

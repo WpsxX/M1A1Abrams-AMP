@@ -18,19 +18,6 @@ namespace ModUtil
         private static readonly List<AssetReference> temp_asset_references = new List<AssetReference>();
         private static readonly List<AssetReference> no_loaded_units = new List<AssetReference>();
 
-        internal static void TempLoadVanillaVehicle(string name)
-        {
-            AssetReference prefab_ref = FindPrefabReference(name);
-
-            if (prefab_ref == null || prefab_ref.Asset != null)
-            {
-                return;
-            }
-
-            TrackReference(temp_asset_references, prefab_ref);
-            prefab_ref.LoadAssetAsync<GameObject>().WaitForCompletion();
-        }
-
         internal static Vehicle LoadVanillaVehicle(string name)
         {
             AssetReference prefab_ref = FindPrefabReference(name);
@@ -59,22 +46,6 @@ namespace ModUtil
             return loaded == null ? null : loaded.GetComponent<Vehicle>();
         }
 
-
-        internal static void ReleaseTempVanillaAssets()
-        {
-            ReleaseAssets(temp_asset_references, true);
-        }
-
-        internal static void ReleaseVanillaAssets()
-        {
-            ReleaseAssets(loaded_asset_references);
-        }
-
-        internal static IEnumerator ReleaseTempVanillaAssetsDeferred(GameState _)
-        {
-            ReleaseTempVanillaAssets();
-            yield break;
-        }
 
         internal static bool VehicleInMission(string name)
         {
@@ -121,75 +92,6 @@ namespace ModUtil
             UnitPrefabLookupScriptable.UnitPrefabMetadata metadata =
                 lookup_all_units.FirstOrDefault(o => o != null && o.Name == name);
             return metadata == null ? null : metadata.PrefabReference;
-        }
-
-        private static void ReleaseAssets(List<AssetReference> asset_references, bool hard_destroy = false)
-        {
-            HashSet<string> released_guids = new HashSet<string>();
-            HashSet<AssetReference> released_references = new HashSet<AssetReference>();
-
-            foreach (AssetReference prefab in asset_references)
-            {
-                if (prefab == null)
-                {
-                    continue;
-                }
-
-                if (!released_references.Add(prefab))
-                {
-                    continue;
-                }
-
-                string guid = prefab.AssetGUID;
-                if (!string.IsNullOrEmpty(guid) && !released_guids.Add(guid))
-                {
-                    continue;
-                }
-
-                try
-                {
-                    if (hard_destroy && !SpawnerOwns(prefab))
-                    {
-                        UnityEngine.Object asset = prefab.Asset;
-                        if (asset != null)
-                        {
-                            GameObject.DestroyImmediate(asset);
-                        }
-                    }
-
-                    prefab.ReleaseAsset();
-                }
-                catch (Exception)
-                {
-                    // Scene teardown can invalidate one handle; continue releasing other handles.
-                }
-            }
-
-            asset_references.Clear();
-        }
-
-        private static bool SpawnerOwns(AssetReference reference)
-        {
-            if (reference == null)
-            {
-                return false;
-            }
-
-            string guid = reference.AssetGUID;
-            foreach (AssetReference loaded in LoadedUnits())
-            {
-                if (loaded == reference)
-                {
-                    return true;
-                }
-
-                if (!string.IsNullOrEmpty(guid) && loaded != null && loaded.AssetGUID == guid)
-                {
-                    return true;
-                }
-            }
-
-            return false;
         }
 
         private static void TrackReference(List<AssetReference> references, AssetReference reference)

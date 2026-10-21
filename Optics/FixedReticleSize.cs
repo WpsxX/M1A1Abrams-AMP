@@ -1,3 +1,4 @@
+using System;
 using System.Collections;
 using System.Collections.Generic;
 using GHPC.Camera;
@@ -10,15 +11,17 @@ using UnityEngine;
 namespace M1A1Abrams
 {
     // Optics register their paired slot in Start. Bind when the sight is actually
-    // used, including its auxiliary reticle meshes, rather than dropping an early
-    // conversion request when PairedOptic is still null.
+    // used, rather than dropping an early conversion request while PairedOptic is
+    // still null, and rebind when the slot is handed to a different optic.
     internal sealed class FixedReticleBinding : MonoBehaviour
     {
         internal CameraSlot Slot;
         internal float ReferenceFov;
+
         private readonly List<FixedReticleSize> meshes = new List<FixedReticleSize>();
         private UsableOptic bound_optic;
-        private bool bound;
+        private int bound_additional = -1;
+        private int applied_frame = -1;
 
         private void OnEnable() { UnityEngine.Camera.onPreCull += ApplyBeforeRender; }
         private void OnDisable() { UnityEngine.Camera.onPreCull -= ApplyBeforeRender; }
@@ -26,38 +29,73 @@ namespace M1A1Abrams
         private void LateUpdate()
         {
             if (Slot == null || !Slot.IsActive) return;
-            if (!bound)
-            {
-                var optic = Slot.PairedOptic;
-                if (optic == null || optic.reticleMesh == null) return;
-                // A camera slot keeps its identity while the optic behind it changes: the
-                // commander's head slots are shared by the night sight, the CITV and the
-                // binocular rig, whose B15/M19 reticles hang off the player camera instead of
-                // the vehicle. Binding there scales the binocular graduations by the ratio
-                // between the sight's narrowest zoom and the binocular field of view - several
-                // times too large - so only vehicle sights may be bound, and only once.
-                if (optic.GetComponentInParent<Vehicle>() == null)
-                {
-                    MelonLoader.MelonLogger.Warning("[M1A1] Fixed reticle size ignored a sight outside the vehicle: " + optic.name);
-                    return;
-                }
-                if (bound_optic == null) bound_optic = optic;
-                if (optic != bound_optic) return;
-                // This is the same scope used by UsableOptic.AdditionalReticleMeshes.
-                Transform root = optic.reticleMesh.transform.parent ?? optic.reticleMesh.transform;
-                foreach (ReticleMesh mesh in root.GetComponentsInChildren<ReticleMesh>(true))
-                {
-                    // The native WFOV corner box marks the narrow field of view.
-                    // Keep its original angular size instead of enlarging it with the aiming reticle.
-                    if (mesh.reticleSO != null && mesh.reticleSO.name == "WFOV") continue;
-                    FixedReticleSize scaler = mesh.GetComponent<FixedReticleSize>();
-                    if (scaler == null) scaler = mesh.gameObject.AddComponent<FixedReticleSize>();
-                    scaler.Bind(mesh);
-                    meshes.Add(scaler);
-                }
-                bound = meshes.Count > 0;
-            }
+            UsableOptic optic = Slot.PairedOptic;
+            if (optic == null || optic.reticleMesh == null) return;
+            // A camera slot keeps its identity while the optic behind it changes: the
+            // commander's head slots are shared by the night sight, the CITV and the
+            // binocular rig. Only sights that live on a vehicle may be bound.
+            if (optic.GetComponentInParent<Vehicle>() == null) return;
+            // UsableOptic fills AdditionalReticleMeshes in its own Start, which can run
+            // after the first conversion request: rebind once that list grows.
+            if (bound_optic == optic && AdditionalCount(optic) == bound_additional) return;
+            BindOptic(optic);
         }
+
+        private static int AdditionalCount(UsableOptic optic)
+        {
+            ReticleMesh[] additional = Reflect.Get<ReticleMesh[]>(optic, "AdditionalReticleMeshes");
+            return additional == null ? 0 : additional.Length;
+        }
+
+        private void BindOptic(UsableOptic optic)
+        {
+            Release();
+            Vehicle vehicle = optic.GetComponentInParent<Vehicle>();
+            bound_optic = optic;
+            // The sight's own reticle always belongs to this optic, even when the game
+            // reparents it under the player camera for post processing.
+            TryBind(optic.reticleMesh, optic, vehicle, true);
+            ReticleMesh[] additional = Reflect.Get<ReticleMesh[]>(optic, "AdditionalReticleMeshes");
+            bound_additional = additional == null ? 0 : additional.Length;
+            if (additional != null)
+                foreach (ReticleMesh mesh in additional)
+                    if (mesh != null && mesh != optic.reticleMesh) TryBind(mesh, optic, vehicle, false);
+        }
+
+        private void TryBind(ReticleMesh mesh, UsableOptic optic, Vehicle vehicle, bool own)
+        {
+            if (mesh == null) return;
+            // The native WFOV corner box marks the narrow field of view. Keep its
+            // original angular size instead of enlarging it with the aiming reticle.
+            if (mesh.reticleSO != null && mesh.reticleSO.name == "WFOV") return;
+            if (!own)
+            {
+                // The reticle parent can also hold the reticles of a neighbouring optic
+                // and the binocular rig that hangs off the player camera. Scaling those
+                // by this sight's zoom is what made the binocular graduations huge.
+                UsableOptic owner = mesh.GetComponentInParent<UsableOptic>();
+                if (owner != null && owner != optic) return;
+                // Follow-object roots (M1IP HULL FOLLOW ...) sit in the scene root, so the
+                // vehicle test has to walk the real transform chain instead of the parent
+                // components. Camera-side rigs fail it and are left alone.
+                if (vehicle == null || !mesh.transform.IsChildOf(vehicle.transform)) return;
+            }
+            FixedReticleSize scaler = mesh.GetComponent<FixedReticleSize>();
+            if (scaler == null) scaler = mesh.gameObject.AddComponent<FixedReticleSize>();
+            if (!scaler.Bind(mesh, this)) return;
+            meshes.Add(scaler);
+        }
+
+        private void Release()
+        {
+            for (int i = 0; i < meshes.Count; i++)
+                if (meshes[i] != null) meshes[i].Release(this);
+            meshes.Clear();
+            bound_optic = null;
+            bound_additional = -1;
+        }
+
+        private void OnDestroy() { Release(); }
 
         // The game rewrites reticle state from Update and LateUpdate, so a size applied there
         // can be replaced before the frame is drawn - the same one-frame flash the CROWS sight
@@ -65,9 +103,14 @@ namespace M1A1Abrams
         // returns immediately unless the zoom changed, so this is not per-frame work.
         private void ApplyBeforeRender(UnityEngine.Camera camera)
         {
-            if (Slot == null || !Slot.IsActive) return;
-            foreach (FixedReticleSize mesh in meshes)
-                if (mesh != null) mesh.Apply(Slot, ReferenceFov);
+            if (Slot == null || !Slot.IsActive || meshes.Count == 0) return;
+            if (applied_frame == Time.frameCount) return;
+            applied_frame = Time.frameCount;
+            // CameraSlot.CurrentFov indexes OtherFovs unguarded, and AMP replaces the
+            // array when it adds zooms: skip instead of throwing here.
+            if (Slot.FovIndex < 0 || (Slot.FovIndex > 0 && (Slot.OtherFovs == null || Slot.FovIndex > Slot.OtherFovs.Length))) return;
+            for (int i = 0; i < meshes.Count; i++)
+                if (meshes[i] != null) meshes[i].Apply(Slot, ReferenceFov);
         }
     }
 
@@ -79,6 +122,7 @@ namespace M1A1Abrams
         private SkinnedMeshRenderer renderer;
         private ReticleSO original, owned;
         private Mesh generated;
+        private FixedReticleBinding owner;
         private float appliedScale = float.NaN;
         private readonly List<ReticleElementSize> sizes = new List<ReticleElementSize>();
 
@@ -88,13 +132,31 @@ namespace M1A1Abrams
             FixedReticleBinding component = slot.gameObject.AddComponent<FixedReticleBinding>();
             component.Slot = slot;
             // Use the original narrow sight as the familiar reference size, before AMP adds zooms.
-            component.ReferenceFov = slot.DefaultFov;
+            // An unset field would drive the scale into the thousands, so keep it sane.
+            float reference = Mathf.Max(slot.DefaultFov, 0.05f);
             if (slot.OtherFovs != null)
                 foreach (float fov in slot.OtherFovs)
-                    if (fov > 0) component.ReferenceFov = Mathf.Min(component.ReferenceFov, fov);
+                    if (fov > 0.05f) reference = Mathf.Min(reference, fov);
+            component.ReferenceFov = Mathf.Max(reference, 0.05f);
         }
 
-        internal void Bind(ReticleMesh mesh) { reticle = mesh; }
+        // Two optics can share a reticle parent; never let them drive the same mesh.
+        internal bool Bind(ReticleMesh mesh, FixedReticleBinding binding)
+        {
+            if (mesh == null || binding == null) return false;
+            if (owner != null && owner != binding) return false;
+            owner = binding;
+            reticle = mesh;
+            return true;
+        }
+
+        internal void Release(FixedReticleBinding binding)
+        {
+            if (owner != binding) return;
+            Restore(true);
+            owner = null;
+            reticle = null;
+        }
 
         private void Capture(IEnumerable<ReticleTree.TransformElement> elements)
         {
@@ -109,7 +171,8 @@ namespace M1A1Abrams
 
         internal void Apply(CameraSlot slot, float referenceFov)
         {
-            if (slot == null || reticle == null || !slot.IsActive) return;
+            if (slot == null || reticle == null) return;
+            if (slot.FovIndex < 0 || (slot.FovIndex > 0 && (slot.OtherFovs == null || slot.FovIndex > slot.OtherFovs.Length))) return;
             bool fixedSize = M1A1.de_fixed_reticle_size != null && M1A1.de_fixed_reticle_size.Value;
             if (!fixedSize && owned == null) return;
             if (owned == null)
@@ -117,34 +180,48 @@ namespace M1A1Abrams
                 original = reticle.reticleSO;
                 if (original == null) return;
                 // Unity clones the serialized tree too: other vehicles and sights keep their own sizes.
-                owned = Object.Instantiate(original);
+                owned = UnityEngine.Object.Instantiate(original);
                 owned.name = original.name + " fixed-size " + GetInstanceID();
-                foreach (ReticleTree.FocalPlane plane in owned.planes)
-                    if (plane != null && plane.type == ReticleTree.FocalPlane.Type.First && plane.elements != null) Capture(plane.elements);
+                if (owned.planes != null)
+                    foreach (ReticleTree.FocalPlane plane in owned.planes)
+                        if (plane != null && plane.elements != null) Capture(plane.elements);
                 renderer = reticle.GetComponent<SkinnedMeshRenderer>();
             }
             if (renderer == null || sizes.Count == 0) return;
             float rawFov = slot.FovIndex == 0 ? slot.DefaultFov : slot.OtherFovs[slot.FovIndex - 1];
-            float reference = referenceFov * slot.CurrentFov / Mathf.Max(rawFov, 0.01f);
+            float reference = Mathf.Clamp(referenceFov * slot.CurrentFov / Mathf.Max(rawFov, 0.01f), 0.05f, 170f);
             float scale = fixedSize ? ReticleSizeRules.Scale(slot.CurrentFov, reference) : 1f;
+            if (float.IsNaN(scale) || float.IsInfinity(scale) || scale <= 0f) scale = 1f;
             if (renderer.sharedMesh != null && Mathf.Abs(scale - appliedScale) < 0.00001f) return;
             foreach (ReticleElementSize size in sizes) size.Apply(scale);
             // Load recreates the light state as well as the mesh. Preserve the
             // optic's ready/laser/illumination indications across a zoom change.
-            var lightTypes = (ReticleTree.Light.Type[])System.Enum.GetValues(typeof(ReticleTree.Light.Type));
-            float[] lightValues = new float[lightTypes.Length];
-            for (int i = 0; i < lightTypes.Length; i++) reticle.GetLight(lightTypes[i], out lightValues[i]);
-            float brightness = Reflect.Get<float>(reticle, "brightness");
+            ReticleTree.Light.Type[] lightTypes = null;
+            float[] lightValues = null;
+            float brightness = 0f;
             Vector3 position = reticle.transform.localPosition;
-            reticle.reticleSO = owned;
-            renderer.sharedMesh = null;
-            // Native Load normalizes an offset reticle to zero. Some GPS reticles
-            // already sit at their projection distance (B15/M19); keep that placement.
-            reticle.transform.localPosition = Vector3.zero;
-            try { reticle.Load(); }
-            finally { reticle.transform.localPosition = position; }
+            try
+            {
+                lightTypes = (ReticleTree.Light.Type[])Enum.GetValues(typeof(ReticleTree.Light.Type));
+                lightValues = new float[lightTypes.Length];
+                for (int i = 0; i < lightTypes.Length; i++) reticle.GetLight(lightTypes[i], out lightValues[i]);
+                brightness = Reflect.Get<float>(reticle, "brightness");
+                reticle.reticleSO = owned;
+                renderer.sharedMesh = null;
+                // Native Load normalizes an offset reticle to zero. Some GPS reticles
+                // already sit at their projection distance (B15/M19); keep that placement.
+                reticle.transform.localPosition = Vector3.zero;
+                try { reticle.Load(); }
+                finally { reticle.transform.localPosition = position; }
+            }
+            catch (Exception)
+            {
+                // Never leave the mesh pointing at a clone that may be destroyed later.
+                reticle.reticleSO = original;
+                return;
+            }
             if (renderer.sharedMesh == null) return;
-            if (generated != null) Object.Destroy(generated);
+            if (generated != null) UnityEngine.Object.Destroy(generated);
             generated = renderer.sharedMesh;
             for (int i = 0; i < lightTypes.Length; i++)
                 if (!float.IsNaN(lightValues[i]))
@@ -159,14 +236,34 @@ namespace M1A1Abrams
             appliedScale = scale;
         }
 
-        private void OnDestroy()
+        // rebuild: when the mesh is handed to another optic the geometry has to go back to
+        // its original size, otherwise it keeps the last zoomed shape. Teardown skips that.
+        private void Restore(bool rebuild)
         {
-            if (owned == null) return;
             IDictionary cache = Reflect.GetStatic<object>(typeof(ReticleMesh), "cachedReticles") as IDictionary;
-            if (cache != null) cache.Remove(owned.name);
-            if (reticle != null) reticle.reticleSO = original;
-            if (generated != null) Object.Destroy(generated);
-            Object.Destroy(owned);
+            if (owned != null && cache != null) cache.Remove(owned.name);
+            ReticleMesh mesh = reticle;
+            ReticleSO restore = original;
+            if (mesh != null && restore != null) mesh.reticleSO = restore;
+            if (generated != null) UnityEngine.Object.Destroy(generated);
+            if (owned != null) UnityEngine.Object.Destroy(owned);
+            generated = null;
+            owned = null;
+            original = null;
+            renderer = null;
+            appliedScale = float.NaN;
+            sizes.Clear();
+            if (!rebuild || mesh == null || restore == null) return;
+            try
+            {
+                SkinnedMeshRenderer skin = mesh.GetComponent<SkinnedMeshRenderer>();
+                if (skin == null) return;
+                skin.sharedMesh = null;
+                mesh.Load();
+            }
+            catch (Exception) { }
         }
+
+        private void OnDestroy() { Restore(false); }
     }
 }

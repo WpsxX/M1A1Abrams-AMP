@@ -41,6 +41,14 @@ namespace M1A1Abrams
 
             private void LoadBelt(AmmoFeed feed)
             {
+                // Invariant first, before anything is touched: the loop below indexes MinimalPattern
+                // modulo its own length and reads Capacity, so an empty pattern divided by zero and a
+                // null one threw outright - from a coroutine, after the belt had already been cleared.
+                if (clip.MinimalPattern == null || clip.MinimalPattern.Length == 0 || clip.Capacity <= 0)
+                {
+                    return;
+                }
+
                 if (feed.QueuedClipType == null)
                 {
                     Reflect.SetProperty(feed, "QueuedClipType", clip);
@@ -95,3 +103,4 @@ namespace M1A1Abrams
         }
     }
 }
+

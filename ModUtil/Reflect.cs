@@ -317,22 +317,6 @@ namespace ModUtil
             return field == null ? default(T) : Read<T>(field, null);
         }
 
-        public static void SetStatic(Type type, string name, object value)
-        {
-            FieldInfo field = FindField(type, name);
-            if (field != null)
-            {
-                try
-                {
-                    field.SetValue(null, value);
-                }
-                catch (Exception e)
-                {
-                    // A static initonly constant (BufferedCameraFollow.SNAPPINESS) lives here; see Set<T>.
-                    Miss("write " + MemberName(type, name) + " (" + e.GetType().Name + ")");
-                }
-            }
-        }
 
         /// <summary>Writes through a property whose setter is not public.</summary>
         public static void SetProperty(object target, string name, object value)
@@ -368,10 +352,6 @@ namespace ModUtil
             return Invoke(target.GetType(), target, name, args);
         }
 
-        public static object CallStatic(Type type, string name, params object[] args)
-        {
-            return Invoke(type, null, name, args);
-        }
 
         private static object Invoke(Type type, object target, string name, object[] args)
         {

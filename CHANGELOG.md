@@ -1,5 +1,10 @@
 # Changelog
 
+## [2.7.7] — 2026-10-22
+
+### 变更 / Changed
+- 代码整理：删除无引用的死代码（约 175 行），无功能变化 / Code cleanup: removed unreferenced dead code (~175 lines), no behaviour changes
+
 ## [2.7.6] — 2026-10-21
 
 ### 适配 / Compatibility

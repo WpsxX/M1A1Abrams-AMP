@@ -285,6 +285,20 @@ namespace M1A1Abrams
             }
 
             /// <summary>
+            /// Keeps the station stabilised. SetStabsActive is otherwise owned by the game's crew and
+            /// input code, and the mount is only servoed correctly while it is on, so it is pinned here.
+            /// </summary>
+            private void PinStabiliser()
+            {
+                if (fcs == null || fcs.StabsActive)
+                {
+                    return;
+                }
+
+                fcs.SetStabsActive(true);
+            }
+
+            /// <summary>
             /// Drives the model onto the aim and the cradle onto its own plane, with the sight's world
             /// orientation captured first and put back afterwards. Run from both LateUpdate and pre-cull;
             /// see HandlePreCull for why one place is not enough.
@@ -298,6 +312,12 @@ namespace M1A1Abrams
                 // Before anything reads the platforms, make sure they still carry the station's rated
                 // slew. This is the one write that has to happen no matter which sight is in use.
                 PinRatedSpeeds();
+
+                // Stabilisation is locked on for this station. The servo was written for a mount that
+                // holds the aim against the hull, so an attempt to switch stabilisation off - from the
+                // crew order, the keybind or another mod - is undone here instead of being allowed to
+                // leave the station following the hull with the sight still tracking.
+                PinStabiliser();
 
                 // The sight is only turned while it is the sight the player is looking through. A lock
                 // outlives the station being selected - it is kept so the station picks the track back up
@@ -813,7 +833,6 @@ namespace M1A1Abrams
         }
     }
 }
-
 
 
 

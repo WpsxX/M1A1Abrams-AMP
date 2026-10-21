@@ -324,7 +324,9 @@ namespace M1A1Abrams
 
                 if (line.StartsWith("["))
                 {
-                    in_category = line == "[M1A1Config]";
+                    // Accept both the current category name and the pre-2.7.6 legacy one, so presets
+                    // keep reading the file even before the first save after the rename.
+                    in_category = line == "[M1A1AMPConfig]" || line == "[M1A1Config]";
                     continue;
                 }
 
@@ -378,6 +380,7 @@ namespace M1A1Abrams
         {
             converted_vehicle_ids.Clear();
             CrowsAmmo.Reset();
+            CrowsStabiliserLock.Reset();
             Mk19.Reset();
             AmpSmoke.Reset();
         }
@@ -486,9 +489,12 @@ namespace M1A1Abrams
             optic.slot.ExclusiveWeapons = new WeaponSystem[] { weapons_manager.Weapons[0].Weapon, weapons_manager.Weapons[1].Weapon };
             night_optic.slot.ExclusiveWeapons = new WeaponSystem[] { weapons_manager.Weapons[0].Weapon, weapons_manager.Weapons[1].Weapon };
 
-            MPATManager mpat_manager = vic_go.AddComponent<MPATManager>();
+            // Conversion must stay idempotent: a second MPATManager/AmpProxyManager would read
+            // the same middle-mouse press and toggle the fuze twice per click.
+            MPATManager mpat_manager = vic_go.GetComponent<MPATManager>();
+            if (mpat_manager == null) mpat_manager = vic_go.AddComponent<MPATManager>();
             mpat_manager.AmmoCachedIdx = Ammo_120mm.ammo_m830a1.CachedIndex;
-            vic_go.AddComponent<AmpProxyManager>();
+            if (vic_go.GetComponent<AmpProxyManager>() == null) vic_go.AddComponent<AmpProxyManager>();
 
             var playerUnit = PlayerInput.Instance?.CurrentPlayerUnit;
             bool player_controlled = playerUnit != null && vic.gameObject == playerUnit.gameObject;

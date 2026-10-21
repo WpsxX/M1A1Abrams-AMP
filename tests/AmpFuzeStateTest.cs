@@ -20,10 +20,10 @@ internal static class AmpFuzeStateTest
         Expect(state.Read(true, true, 1), shot);
         Expect(state.Read(true, true, 1), shot);
         Expect(state.Read(true, false, 2), AmpFuzeMode.Proximity);
-        Expect(state.Read(true, true, 3), AmpFuzeMode.Timed);
+        Expect(state.Read(true, true, 3), AmpFuzeMode.Impact);
         Expect(shot, AmpFuzeMode.Proximity); // already fired round retains its snapshot
-        Expect(state.Read(true, true, 4), AmpFuzeMode.Impact);
-        Expect(state.Read(true, false, 5), AmpFuzeMode.Impact);
+        Expect(state.Read(true, true, 4), AmpFuzeMode.Proximity);
+        Expect(state.Read(true, false, 5), AmpFuzeMode.Proximity);
         Expect(state.Read(false, true, 6), AmpFuzeMode.Timed);
         Expect(state.Read(false, true, 7), AmpFuzeMode.Timed);
         Expect(state.Read(true, false, 8), AmpFuzeMode.Impact);

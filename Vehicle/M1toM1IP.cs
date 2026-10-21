@@ -1,4 +1,4 @@
-using System;
+﻿using System;
 using GHPC.AI;
 using GHPC.Mission.Data;
 using GHPC.Mission;
@@ -67,10 +67,12 @@ namespace M1A1Abrams
                     __state.Preset = preset;
                     __state.MarkM1E1 = !genuine;
 
-                    // Permanent load, not TempLoad: the temp pool is released on PlayerReady, which
-                    // fires before units spawn, so every mission used to leak one copy of the vanilla
-                    // M1 prefab. LoadVanillaVehicle is cached and already warm from the menu scene.
-                    AssetUtil.LoadVanillaVehicle("M1");
+                    // Only the name is rewritten here. The spawner then resolves and loads the M1IP
+                    // prefab itself, exactly as it does for a mission whose player vehicle already
+                    // is an M1IP. Loading a prefab from inside this hook nested a second blocking
+                    // Addressables read inside the spawn loop and left the shared load state broken
+                    // for the other mods; the M1IP prefab is preloaded one scene earlier instead
+                    // (Main.PreloadTransmogPrefab).
                     uniqueName = "M1IP";
                 }
             }

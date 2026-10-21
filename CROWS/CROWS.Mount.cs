@@ -336,9 +336,6 @@ namespace M1A1Abrams
             Reflect.Set(fcs, "_fixParallaxForVectorMode", true);
             
             fcs.Mounts = new AimablePlatform[] { aimable_mount, aimable_gun };
-            // DetachFromDonor clears the donor cupola platform. Native counter-motion lead
-            // dereferences TurretPlatform directly, even when no target is locked.
-            fcs.TurretPlatform = aimable_mount;
             aim_slave.fcs = fcs;
 
             CameraSlot optic_slot = day_optic.slot;
@@ -367,25 +364,17 @@ namespace M1A1Abrams
             fcs.SuperleadWeapon = true;
             fcs.CurrentStabMode = StabilizationMode.Vector;
             fcs.SetStabsActive(true);
+            CrowsStabiliserLock.Lock(fcs);
             fcs.RecordTraverseRateBuffer = true;
             fcs.TraverseBufferSeconds = 0.1f;
             fcs.DynamicLead = true;
 
-            // 1014 adds vertical motion to the native fire-control lead path. CROWS uses the same
-            // FireControlSystem instance for the manual sight and for ATT, so enable both native
-            // vertical paths here. The fields are private in the running Assembly-CSharp build;
-            // Reflect keeps this source compatible with the game's non-public assembly.
-            // When ATT is locked, CrowsLeadLock's world-lead patch owns the complete 3-D solution,
-            // so these flags affect the free/manual path without adding a second vertical term.
-            fcs.PointStabIncludesVertical = true;
+            // Manual lead includes horizontal and vertical target motion. Native
+            // inertial compensation uses the host's full world-space velocity;
+            // ATT replaces it with its own relative-motion solution while locked.
             Reflect.Set(fcs, "InertiaLeadIncludesVertical", true);
-            Reflect.Set(fcs, "PointStabAffectsLead", true);
             Reflect.Set(fcs, "_horizontalLeadOnly", false);
-            // Apply chassis counter-motion even without a target lock. The native path uses the new
-            // two-second vertical-speed average; its velocity term replaces, rather than supplements,
-            // GetLeadWorldOffset's unsmoothed inertial compensation.
-            fcs.InertialCompensation = false;
-            Reflect.Set(fcs, "_counterMotionLeadAlwaysOn", true);
+            fcs.InertialCompensation = true;
 
             // FireControlSystem.Awake() cached these before we changed the fields above, so
             // leaving manual mode would otherwise switch superelevation/lead back off.
@@ -465,7 +454,6 @@ namespace M1A1Abrams
             flir_optic.slot.LinkedDaySight = optic_slot;
             flir_optic.slot.VibrationBlurScale = 0f;
             flir_optic.slot.VibrationShakeMultiplier = 0f;
-            AmpOptics.ApplyPair(optic_slot, flir_optic.slot, true);
             ConfigureMainGunThermal(flir_optic, main_gun_thermal);
 
             // Main-gun FLIR resolutions may have a different aspect ratio from the screen.

@@ -25,20 +25,13 @@ namespace M1A1Abrams
             return mode;
         }
 
-        // Impact -> Proximity -> Timed -> Impact. The timed step is what makes the
-        // airburst reachable with "AMP Proxy Fuze" enabled; without it the state
-        // machine could only ever return Impact or Proximity.
+        // Impact <-> Proximity, matching upstream AMP (ProxySwitchAMP.activated): the middle
+        // mouse toggles point-detonate and proximity. A third "Timed" step in the cycle made
+        // the round airburst with no [Proximity] suffix, which reads as the two modes being
+        // swapped, and left proximity two presses away whenever the cycle stopped on it.
         private static AmpFuzeMode Next(AmpFuzeMode current)
         {
-            switch (current)
-            {
-                case AmpFuzeMode.Impact:
-                    return AmpFuzeMode.Proximity;
-                case AmpFuzeMode.Proximity:
-                    return AmpFuzeMode.Timed;
-                default:
-                    return AmpFuzeMode.Impact;
-            }
+            return current == AmpFuzeMode.Impact ? AmpFuzeMode.Proximity : AmpFuzeMode.Impact;
         }
     }
 }

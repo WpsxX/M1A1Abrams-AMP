@@ -44,7 +44,7 @@ namespace M1A1Abrams
             HeorFragments = Prefs.Entry(cfg, "HEOR Fragments", 300);
             HeorFragments.Comment = "M908 HE-OR explosion fragments. Positive integer; default 300. Reload the mission after changing.";
             AmpProxyFuze = Prefs.Entry(cfg, "AMP Proxy Fuze", false);
-            AmpProxyFuze.Comment = "true: middle mouse toggles XM1147 impact/proximity fuze. false: timed airburst at the fire-control range. HUD shows [Proximity] after the ammunition name only when proximity is selected.";
+            AmpProxyFuze.Comment = "true: middle mouse toggles the XM1147 between point-detonate and proximity; the HUD shows [Proximity] after the ammunition name only in proximity mode. false: time-delay airburst at the fire-control range and the middle mouse is ignored. The MPAT (M830A1) proximity fuze is always available and needs no config entry.";
             AmpProxyDistance = Prefs.Entry(cfg, "AMP Proxy Distance", 3f);
             BetterTransmission = Prefs.Entry(cfg, "Transmission+", false);
             GovernorDelete = Prefs.Entry(cfg, "GovernorDelete", false);

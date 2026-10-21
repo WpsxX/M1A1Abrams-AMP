@@ -1,4 +1,4 @@
-using System;
+﻿using System;
 using System.Linq;
 using MelonLoader;
 using M1A1Abrams;      // the assembly attributes below name the mod type
@@ -10,7 +10,7 @@ using GHPC.Vehicle;
 using ModUtil;
 using Presets;
 
-[assembly: MelonInfo(typeof(M1A1AbramsMod), "ZZ M1A1 Abrams AMP", "2.7.6", "Cyance, ATLAS, Schweiz, WPSX")]
+[assembly: MelonInfo(typeof(M1A1AbramsMod), "ZZ M1A1 Abrams AMP", "2.7.7", "Cyance, ATLAS, Schweiz, WPSX")]
 [assembly: MelonGame("Radian Simulations LLC", "GHPC")]
 
 namespace M1A1Abrams
@@ -38,13 +38,20 @@ namespace M1A1Abrams
             // MelonLoader installs this assembly's Harmony patches once during initialization.
 
             module_manager = new ModuleManager();
-            // Keep 测试2's own preference category so the existing AMP/引信 settings are preserved
-            // across this port (CROWSFIX 1.3.8 renamed it to "M1A1-CROWSFIX").
-            MelonPreferences_Category cfg = MelonPreferences.CreateCategory("M1A1Config");
+            // Upstream AMP uses the "M1A1AMPConfig" category. Older builds of this fork wrote
+            // "M1A1Config", so on the first launch after the rename the old values are copied
+            // across (and the stale section removed) instead of silently resetting to defaults.
+            bool fresh_category = MelonPreferences.GetCategory("M1A1AMPConfig") == null;
+            MelonPreferences_Category cfg = MelonPreferences.CreateCategory("M1A1AMPConfig");
             M1A1.Config(cfg);
             AmpFeatures.Config(cfg);
             AmpUpgrades.Config(cfg);
-            MelonLogger.Msg("[M1A1 AMP] fixed build 2.7.6 "
+
+            if (fresh_category)
+            {
+                MigrateLegacyConfig(cfg);
+            }
+            MelonLogger.Msg("[M1A1 AMP] fixed build 2.7.7 "
                 + typeof(M1A1AbramsMod).Module.ModuleVersionId + "; DLL=" + typeof(M1A1AbramsMod).Assembly.Location);
             MelonLogger.Msg("[AMP] Loaded configuration: M1A1 Engine=" + M1A1.AgtM1.Value
                 + ", M1E1 Engine=" + M1A1.AgtM1e1.Value + ", M1A1 Armor=" + AmpUpgrades.ArmorM1A1.Value
@@ -60,12 +67,113 @@ namespace M1A1Abrams
             PresetManager.LoadAllPresets();
         }
 
+        // Copies every value from the legacy "M1A1Config" section into the new "M1A1AMPConfig"
+        // category. Only runs when the new category did not exist yet, so it can never overwrite
+        // settings the player already made under the new name.
+        private static void MigrateLegacyConfig(MelonPreferences_Category target)
+        {
+            MelonPreferences_Category legacy = MelonPreferences.GetCategory("M1A1Config");
+
+            if (legacy == null)
+            {
+                return;
+            }
+
+            int copied = 0;
+
+            foreach (MelonPreferences_Entry old_entry in legacy.Entries)
+            {
+                foreach (MelonPreferences_Entry new_entry in target.Entries)
+                {
+                    if (!string.Equals(new_entry.Identifier, old_entry.Identifier, System.StringComparison.Ordinal))
+                    {
+                        continue;
+                    }
+
+                    try
+                    {
+                        new_entry.BoxedValue = old_entry.BoxedValue;
+                        copied++;
+                    }
+                    catch (System.Exception)
+                    {
+                        // Type mismatch between two builds: keep the new default.
+                    }
+
+                    break;
+                }
+            }
+
+            ForgetCategory(legacy);
+            MelonPreferences.Save();
+            MelonLogger.Msg("[AMP] migrated " + copied + " setting(s) from [M1A1Config] to [M1A1AMPConfig]");
+        }
+
+        // MelonPreferences has no public "drop this category" call, so the legacy section is
+        // unregistered from the static category list (guarded by reflection) before the next
+        // save, otherwise every later save would keep rewriting the stale section.
+        private static void ForgetCategory(MelonPreferences_Category category)
+        {
+            try
+            {
+                System.Reflection.FieldInfo field = typeof(MelonPreferences).GetField(
+                    "Categories",
+                    System.Reflection.BindingFlags.Static | System.Reflection.BindingFlags.NonPublic);
+
+                if (field == null)
+                {
+                    return;
+                }
+
+                System.Collections.IList categories = field.GetValue(null) as System.Collections.IList;
+
+                if (categories == null)
+                {
+                    return;
+                }
+
+                categories.Remove(category);
+            }
+            catch (System.Exception exception)
+            {
+                MelonLogger.Warning("[AMP] could not drop the legacy preference category: " + exception.Message);
+            }
+        }
+
+        // The M1 -> M1IP spawn hook only rewrites the unit name; the spawner then loads the M1IP
+        // prefab synchronously inside its own spawn loop. Loading it here, one scene before the
+        // spawns run, turns that internal load into an already-resident hit and keeps our code out
+        // of the spawn loop entirely - doing the load from the spawn hook as well nested a second
+        // blocking Addressables read inside the loop and left the shared load state broken for the
+        // other mods (they then failed with "Unable to load asset" on their own donor prefabs).
+        private static void PreloadTransmogPrefab()
+        {
+            if (!M1A1.m1_to_m1ip.Value && !M1A1.m1e1_ip_model.Value)
+            {
+                return;
+            }
+
+            try
+            {
+                AssetUtil.LoadVanillaVehicle("M1IP");
+            }
+            catch (Exception e)
+            {
+                MelonLogger.Warning("[M1A1] could not preload the M1IP prefab: " + e.Message);
+            }
+        }
+
         public override void OnSceneWasLoaded(int idx, string scene_name) {
             if (Util.MenuScreens.Contains(scene_name))
             {
                 ResetMissionAssets();
                 valid_scene_count = 0;
-                module_manager.LoadAllStaticAssets();
+
+                // Static assets (our seven bundles, about 32 MB) are deliberately NOT loaded
+                // here. Doing it in the menu scene put a long synchronous bundle read into the
+                // same window in which every other mod loads its own assets, which is where the
+                // occasional stalled loading screen came from. Every consumer of them runs
+                // during a conversion, so they are loaded on the first mission scene instead.
 
                 // A watcher left over from the previous mission would keep polling for
                 // vehicles in the menu diorama and convert a display tank, so it is stopped
@@ -91,11 +199,17 @@ namespace M1A1Abrams
 
             valid_scene_count++;
 
+            // Loaded here, not in the menu: this keeps the menu load cheap and stops our 32 MB of
+            // bundles from competing with the other mods' asset loads. Modules cache the result,
+            // so this costs one read per launch.
+            module_manager.LoadAllStaticAssets();
+
             // A mission loads in two stages; an additive scene must not tear down
             // the dynamic assets loaded for the mission's PlayerReady callback.
             if (valid_scene_count == 1)
             {
                 ResetMissionAssets();
+                PreloadTransmogPrefab();
             }
 
             if (valid_scene_count == 2)

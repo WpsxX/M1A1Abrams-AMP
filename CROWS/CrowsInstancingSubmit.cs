@@ -326,11 +326,6 @@ namespace M1A1Abrams
             return null;
         }
 
-        private static bool Prepare()
-        {
-            return TargetMethod() != null;
-        }
-
         /// <summary>
         /// Runs instead of the renderer's own submission. Returns false to skip it when the work has
         /// been done here, and true to hand the frame back to it whenever anything at all is not
@@ -720,3 +715,4 @@ namespace M1A1Abrams
         }
     }
 }
+

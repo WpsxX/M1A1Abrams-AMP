@@ -16,18 +16,6 @@ namespace M1A1Abrams
         // Shared so the per-frame sweep allocates nothing; this runs inside the round flight loop.
         private static readonly RaycastHit[] Hits = new RaycastHit[64];
 
-        /// <summary>
-        /// Standalone per-frame query for callers that run outside the flight loop and therefore
-        /// have no measured travel step of their own (the MPAT airburst runs from Update).
-        /// </summary>
-        internal static bool Detect(LiveRound round, Vector3 launchPosition, float radius)
-        {
-            if (round == null) return false;
-            Vector3 from = round.transform.position;
-            Vector3 to = from + round.transform.forward * EstimatedStep(round);
-            Vector3 burstPoint;
-            return TryGetBurstPoint(round, launchPosition, radius, from, to, out burstPoint);
-        }
 
         /// <summary>
         /// Sweeps the fuze envelope over one flight step and reports where the warhead has to
@@ -109,15 +97,6 @@ namespace M1A1Abrams
             if (contact < 0f) contact = 0f;
             burstPoint = from + direction * contact;
             return true;
-        }
-
-        /// <summary>Upper bound of the round's travel since the previous frame, in metres.</summary>
-        private static float EstimatedStep(LiveRound round)
-        {
-            if (round == null) return 0f;
-            float speed = round.CurrentSpeed;
-            if (float.IsNaN(speed) || float.IsInfinity(speed) || speed <= 0f) return 0f;
-            return speed * Time.deltaTime;
         }
 
         internal static bool IsTarget(Collider collider, LiveRound round)

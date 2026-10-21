@@ -45,9 +45,15 @@ namespace M1A1Abrams
         private const float MAX_LOCK_RANGE = 4000f;
 
         /// <summary>
-        /// True while the fire control should superelevate the mounts themselves (the .50 cal
-        /// mode). The Mk 19 station drives a separate ballistic pivot, so the fire control must not
-        /// add superelevation to the mount on top of it.
+        /// Whether the fire control may put its superelevation and lead into the mounts.
+        ///
+        /// The Mk 19 station compensates at the muzzle instead (see Mk19BallisticMuzzle), so its
+        /// mounts - and with them the sight the player is looking through - have to stay on the bare
+        /// aim line. Otherwise the sight climbs with the ballistic angle the moment a target is
+        /// locked (degrees at range for a 241 m/s grenade, so the far end of the map goes behind the
+        /// sky) and the compensation being dropped on release reads as a jerk.
+        ///
+        /// Every other station leaves this on and gets the game's own behaviour unchanged.
         /// </summary>
         public bool superelevate_mounts = true;
 
@@ -287,19 +293,6 @@ namespace M1A1Abrams
         private const double FIRE_LATENCY_SECONDS = 0.03;
         private const double LAUNCH_DELAY_SECONDS = AIM_LATENCY_SECONDS + FIRE_LATENCY_SECONDS;
 
-        /// <summary>
-        /// Smoothing for the target's own velocity (1/s) before it becomes a crossing rate; see
-        /// ReportTargetRate. Half a second averages out the speed a tracked vehicle only appears to
-        /// have as it works over rough ground, and keeps the acceleration that matters.
-        /// </summary>
-        private const float LEAD_VELOCITY_SMOOTHING = 2f;
-
-        /// <summary>
-        /// The smallest measured rate worth calling motion, in degrees per second. Only used when the
-        /// target reports no velocity of its own, where all that is left to measure is the aim's noise
-        /// on a parked vehicle.
-        /// </summary>
-        private const float STATIONARY_RATE_DEGREES = 1.5f;
 
         /// <summary>
         /// The smallest speed worth calling motion, in metres per second, for the fallback that measures
@@ -968,8 +961,6 @@ namespace M1A1Abrams
 
         /// <summary>The computer's own inertial-compensation setting, for handing back with the lock.</summary>
         private bool original_inertial;
-        private bool original_point_stab_lead;
-        private bool original_counter_motion_lead;
         private bool lead_armed;
 
         // ------------------------------------------------------------------ ui
@@ -1174,12 +1165,15 @@ namespace M1A1Abrams
                 fcs.ZeroOutLead();
                 fcs.SetLeadHold(false);
 
+                // A station that compensates at the muzzle never had the ballistic angle in the
+                // mounts, so putting the switch back to its own value here is a no-op for it - and
+                // for every other station it restores exactly what ArmLead() found.
+                fcs.SuperelevateWeapon = superelevate_mounts;
+
                 // The platform's travel goes back to the fire control with the lock, so a player aiming
                 // the station by hand again gets the game's own compensation for it rather than none;
                 // see ArmLead for why this module takes it over while a target is held.
                 fcs.InertialCompensation = original_inertial;
-                Reflect.Set(fcs, "PointStabAffectsLead", original_point_stab_lead);
-                Reflect.Set(fcs, "_counterMotionLeadAlwaysOn", original_counter_motion_lead);
             }
             catch (Exception)
             {
@@ -1231,15 +1225,8 @@ namespace M1A1Abrams
                 // the same term, in the same frame, with the same sign - so nothing about the ballistics
                 // changes.
                 original_inertial = fcs.InertialCompensation;
-                original_point_stab_lead = Reflect.Get<bool>(fcs, "PointStabAffectsLead");
-                original_counter_motion_lead = Reflect.Get<bool>(fcs, "_counterMotionLeadAlwaysOn");
                 lead_armed = true;
                 fcs.InertialCompensation = false;
-                // ATT already subtracts inherited chassis velocity in all three world axes.
-                // Keep native counter-motion out of both the primary and fallback lead rates,
-                // and restore it when the lock ends so manual vertical compensation resumes.
-                Reflect.Set(fcs, "PointStabAffectsLead", false);
-                Reflect.Set(fcs, "_counterMotionLeadAlwaysOn", false);
                 fcs.ClampDegreeAdjust = false;   // this module clamps its own rate
 
                 // The rate the lead is derived from is the rate the aim is rotated at, and with a
@@ -1981,6 +1968,19 @@ namespace M1A1Abrams
             if (!Drives(other) || !isActiveAndEnabled || !Tracking || !IsActiveWeapon()
                 || fcs.FcsFault || fcs.CurrentAmmoType == null
                 || fcs.CurrentAmmoType.NoLeadCompensation) return false;
+
+            // Nothing is moving: the target is parked and so is the station. There is no lead to
+            // work out - the round leaves along the line of sight and lands where the sight is
+            // pointed - and skipping the solve keeps sub-floor velocity noise from being multiplied
+            // by a long grenade flight time (a tenth of a metre a second over nineteen seconds is
+            // two metres). The zero offset still means the world lead owns this fire control, so the
+            // game cannot fall back to inferring a lead from the aim's own rotation instead.
+            float parked = TARGET_VELOCITY_FLOOR * TARGET_VELOCITY_FLOOR;
+            if (LeadVelocity().sqrMagnitude <= parked && PlatformLeadVelocity().sqrMagnitude <= parked)
+            {
+                world_lead_active = true;
+                return true;
+            }
             // lead_ready and not lead_suspended: the world lead does not read the traverse rate the
             // suspension exists to protect, so it goes out as soon as the aim is anywhere near the
             // target; see LEAD_ENTRY_CONE_DEGREES.
@@ -2960,3 +2960,4 @@ namespace M1A1Abrams
 
     }
 }
+
